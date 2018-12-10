@@ -1,5 +1,12 @@
+function showError(err) {
+    alert(err.message);
+    console.error(err);
+};
+
 async function initAuth() {
   const auth = firebase.auth();
+  const db = firebase.firestore();
+  db.settings({ timestampsInSnapshots: true });
 
   const $app = document.getElementById('app');
   const $load = document.getElementById('load');
@@ -13,22 +20,26 @@ async function initAuth() {
       loaded = true;
       $load.style.display = 'none';
       $app.style.display = '';
-      loginUser = user;
-      if (user) {
-        $authButton.innerText = 'Logout';
-      } else {
-        $authButton.innerText = 'Login';
-      }
     }
-    console.log('@@@', user);
+
+    loginUser = user;
+
+    if (user) {
+      $authButton.innerText = 'Logout';
+
+      db.collection('users').doc(user.uid).set({
+          name: user.displayName,
+          photoURL: user.photoURL,
+      }).catch(showError);
+    } else {
+      $authButton.innerText = 'Login';
+    }
   });
 
   $authButton.addEventListener('click', () => {
     if (loginUser) {
-      auth.signOut();
-      // 元はreturn; だったが、ログアウトした際にリロードすることで表示を切り替えたかった
-      // 実運用するならこのへんはもう少し作り込まないとまずそう
-      location.reload();
+      auth.signOut().then(() => location.reload());
+      return;
     }
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithRedirect(provider);
