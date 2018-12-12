@@ -1,0 +1,17 @@
+{
+  "indexes": [
+    {
+      "collectionId": "timeline",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "mode": "ASCENDING"
+        },
+        {
+          "fieldPath": "created",
+          "mode": "ASCENDING"
+        }
+      ]
+    }
+  ]
+}

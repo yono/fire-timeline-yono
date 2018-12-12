@@ -4,12 +4,52 @@ function isProfile(resource) {
     (!('photoURL' in resource.keys()) || (resource.photoURL is string && resource.photoURL.matches("^https:[/][/].*"))); // photoURLはhttps:// から始まるデータのみ
 }
 
+function isPost(resource) {
+  return resource.keys().hasOnly(['uid', 'text', 'created']) && 
+    resource.keys().hasAll(['uid', 'created']) && // uidとcreatedは必須にする
+    resource.uid is string &&
+    (!('text' in resource.keys()) || 
+      (resource.text is string && 
+        resource.text.size() <= 140)) &&
+    resource.created is timestamp;
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isEnabledUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+    }
+
     match /users/{userId} {
       allow get: if request.auth.uid != null;
-      allow write: if isProfile(request.resource.data) &&
+      allow write: if isProfile(request.resource.data) && 
         request.auth.uid == userId;
+
+      match /timeline/{postId} {
+        allow read: if request.auth.uid == userId || userId == resource.data.uid;
+        allow create: if isPost(request.resource.data) &&
+          request.auth.uid == request.resource.data.uid && // uidは書き込むユーザーのuidと一致していなければならない。
+          request.time == request.resource.data.created && // createdはリクエスト時間と一致する必要がある。
+          request.auth.uid == userId;
+        allow delete: if request.auth.uid == userId;
+      }
+
+      match /following/{uid} {
+        allow read: if request.auth.uid != null;
+        allow create: if request.time == request.resource.data.created &&
+          isEnabledUser(uid) &&
+          request.auth.uid == userId;
+        allow delete: if request.auth.uid == userId;
+      }
+
+      match /followers/{uid} {
+        allow read: if request.auth.uid != null;
+        allow create: if request.time == request.resource.data.created &&
+          isEnabledUser(userId) &&
+          request.auth.uid == uid;
+        allow delete: if request.auth.uid == uid;
+      }
     }
   }
 }
+
